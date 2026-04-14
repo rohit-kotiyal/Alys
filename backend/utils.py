@@ -34,7 +34,7 @@ def generate_unique_filename(original_filename: str) -> str:
     return unique_filename
 
 
-def format_file_size(size_bytes: int) -> str:
+def format_file_size(size_bytes: float) -> str:
     """ convert file size to human readable format """
 
     for unit in ["B", "KB", "MB", "GB"]:

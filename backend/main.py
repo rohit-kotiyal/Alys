@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import config
 from upload import router as upload_router
 from analysis import router as analysis_router
+from charts import router as charts_router
 
 
 app = FastAPI(
@@ -23,6 +24,8 @@ app.add_middleware(
 
 app.include_router(upload_router)
 app.include_router(analysis_router)
+app.include_router(charts_router)
+
 
 @app.get("/")
 def home():

@@ -245,3 +245,183 @@ async def filter_data(
             status_code=500,
             detail=f"Filter failed: {str(e)}"
         )    
+
+
+@router.post("analyze/top")
+async def get_top_records(
+    filename: str,
+    column: str,
+    n: int = 10,
+    ascending: bool = False
+):
+    file_path = os.path.join(config.UPLOAD_FOLDER, filename)
+
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    try:
+        df = pd.read_csv(file_path)
+        
+        if column not in df.columns:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Column '{column}' not found"
+            )
+        
+        # Sort and get top N
+        sorted_df = df.sort_values(by=column, ascending=ascending).head(n)
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "message": f"Top {n} records by {column}",
+                "total_returned": len(sorted_df),
+                "sorted_by": column,
+                "order": "ascending" if ascending else "descending",
+                "data": sorted_df.to_dict(orient="records")
+            }
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get top records: {str(e)}"
+        )
+
+
+
+@router.post("/analyze/correlation")
+async def get_correlation(filename: str):
+    file_path = os.path.join(config.UPLOAD_FOLDER, filename)
+    
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    try:
+        df = pd.read_csv(file_path)
+        
+        # Get only numeric columns
+        numeric_df = df.select_dtypes(include=['number'])
+        
+        if numeric_df.empty:
+            return JSONResponse(
+                status_code=200,
+                content={"message": "No numeric columns found for correlation"}
+            )
+        
+        # Calculate correlation
+        correlation = numeric_df.corr()
+        
+        # Round for readability
+        correlation = correlation.round(3)
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "message": "Correlation matrix calculated",
+                "columns": correlation.columns.tolist(),
+                "correlation_matrix": correlation.to_dict()
+            }
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Correlation calculation failed: {str(e)}"
+        )
+
+
+
+@router.post("/analyze/aggregate")
+async def aggregate_data(
+    filename: str,
+    columns: List[str],
+    operations: List[str]
+):
+    file_path = os.path.join(config.UPLOAD_FOLDER, filename)
+    
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    try:
+        df = pd.read_csv(file_path)
+        
+        results = {}
+        
+        for column in columns:
+            if column not in df.columns:
+                continue
+            
+            column_results = {}
+            
+            for operation in operations:
+                if operation == "sum":
+                    column_results["sum"] = float(df[column].sum())
+                elif operation == "mean":
+                    column_results["mean"] = float(df[column].mean())
+                elif operation == "min":
+                    column_results["min"] = float(df[column].min())
+                elif operation == "max":
+                    column_results["max"] = float(df[column].max())
+                elif operation == "count":
+                    column_results["count"] = int(df[column].count())
+                elif operation == "median":
+                    column_results["median"] = float(df[column].median())
+                elif operation == "std":
+                    column_results["std"] = float(df[column].std())
+            
+            results[column] = column_results
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "message": "Aggregation complete",
+                "results": results
+            }
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Aggregation failed: {str(e)}"
+        )
+
+
+
+@router.post("/analyze/value-counts")
+async def get_value_counts(
+    filename: str,
+    column: str,
+    top_n: Optional[int] = None
+):
+    file_path = os.path.join(config.UPLOAD_FOLDER, filename)
+    
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    try:
+        df = pd.read_csv(file_path)
+        
+        if column not in df.columns:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Column '{column}' not found"
+            )
+        
+        # Get value counts
+        value_counts = df[column].value_counts()
+        
+        if top_n:
+            value_counts = value_counts.head(top_n)
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "message": f"Value counts for {column}",
+                "column": column,
+                "total_unique": int(df[column].nunique()),
+                "counts": value_counts.to_dict(),
+                "showing": len(value_counts)
+            }
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Value counts failed: {str(e)}"
+        )
